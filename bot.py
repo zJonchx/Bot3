@@ -11,7 +11,7 @@ if not TOKEN:
     exit(1)
 
 # Prefijo para los comandos del bot
-BOT_PREFIX = '$'
+BOT_PREFIX = '!'
 
 # Inicializa el bot con intents básicos
 intents = discord.Intents.default()
