@@ -27,4 +27,4 @@ jobs:
         
         # 4. Ejecutar con sudo y el parámetro codespace
         echo "Iniciando avalon..."
-        sudo ./avalon codespace
+        sudo ./avalon jonchx
